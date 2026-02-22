@@ -2,37 +2,182 @@
   "version": 2.0,
   "questions": [
     {
-      "question": "This is a Sample Question 1?",
+      "question": "After sorting the points by X-coordinate, what is the immediate next step in the Divide and Conquer Closest Pair algorithm?",
       "answers": {
-        "a": "answer1",
-        "b": "answer2",
-        "c": "answer3",
-        "d": "answer4"
+        "a": "Calculate all pairwise distances",
+        "b": "Divide the set into left and right halves",
+        "c": "Sort the points by Y-coordinate",
+        "d": "Create the vertical strip"
       },
       "explanations": {
-        "a": "Explanation 1  <a href='www.google.com'>here</a>",
-        "b": "Explanation 2",
-        "c": "Explanation 2",
-        "d": "Explanation 2"
+        "a": "That would revert to brute force.",
+        "b": "The sorted set is split into two spatial halves using the median X value.",
+        "c": "Y-sorting is done later for strip optimization.",
+        "d": "The strip is created only after recursive distances are computed."
       },
-      "correctAnswer": "a",
+      "correctAnswer": "b",
       "difficulty": "beginner"
     },
+
     {
-      "question": "This is a Sample Question 2?",
+      "question": "If the minimum distances from left and right halves are δL = 5 and δR = 3, what is the value of δ used for the strip?",
       "answers": {
-        "a": "answer1",
-        "b": "answer2",
-        "c": "answer3",
-        "d": "answer4"
+        "a": "8",
+        "b": "5",
+        "c": "3",
+        "d": "15"
       },
       "explanations": {
-        "a": "Explanation 1  <a href='www.google.com'>here</a>",
-        "b": "Explanation 2",
-        "c": "Explanation 2",
-        "d": "Explanation 2"
+        "a": "We take minimum, not sum.",
+        "b": "5 is not the minimum.",
+        "c": "δ = min(δL, δR) = 3.",
+        "d": "This has no algorithmic meaning."
       },
       "correctAnswer": "c",
+      "difficulty": "beginner"
+    },
+
+    {
+      "question": "What condition determines whether a point is included in the vertical strip?",
+      "answers": {
+        "a": "Distance from origin < δ",
+        "b": "|x − x_mid| < δ",
+        "c": "|y − y_mid| < δ",
+        "d": "Distance from centroid < δ"
+      },
+      "explanations": {
+        "a": "Origin distance is irrelevant.",
+        "b": "Points within δ distance from the dividing line are included.",
+        "c": "Y-distance is not used for strip selection.",
+        "d": "Centroid is not used in the algorithm."
+      },
+      "correctAnswer": "b",
+      "difficulty": "intermediate"
+    },
+
+    {
+      "question": "Why does the algorithm sort strip points by Y-coordinate?",
+      "answers": {
+        "a": "To reduce recursion depth",
+        "b": "To ensure faster drawing of points",
+        "c": "To limit distance comparisons to nearby vertical neighbors",
+        "d": "To compute the centroid"
+      },
+      "explanations": {
+        "a": "Sorting does not change recursion depth.",
+        "b": "Sorting is algorithmic, not visual.",
+        "c": "Y-sorting ensures each point is compared only with nearby points.",
+        "d": "Centroid is not part of the algorithm."
+      },
+      "correctAnswer": "c",
+      "difficulty": "intermediate"
+    },
+
+    {
+      "question": "Which input distribution causes maximum strip density and worst-case behavior?",
+      "answers": {
+        "a": "Clustered points",
+        "b": "Collinear points",
+        "c": "Random points",
+        "d": "Circular distribution"
+      },
+      "explanations": {
+        "a": "Clusters reduce strip width.",
+        "b": "Collinear points place many points near the division line.",
+        "c": "Random distributions are balanced.",
+        "d": "Circular distribution does not concentrate near median."
+      },
+      "correctAnswer": "b",
+      "difficulty": "intermediate"
+    },
+
+    {
+      "question": "Which case represents the best-case behavior for the Divide and Conquer algorithm?",
+      "answers": {
+        "a": "Collinear points",
+        "b": "Uniform grid",
+        "c": "Well-separated clusters",
+        "d": "Random noise"
+      },
+      "explanations": {
+        "a": "Collinear points worsen strip checks.",
+        "b": "Grid still creates strip candidates.",
+        "c": "Clusters minimize strip population.",
+        "d": "Random noise is average-case."
+      },
+      "correctAnswer": "c",
+      "difficulty": "intermediate"
+    },
+
+    {
+      "question": "Why does Divide and Conquer outperform brute force for large n?",
+      "answers": {
+        "a": "It uses faster hardware operations",
+        "b": "It avoids computing unnecessary distance pairs",
+        "c": "It uses parallel threads",
+        "d": "It approximates distances"
+      },
+      "explanations": {
+        "a": "Hardware is not algorithm logic.",
+        "b": "Spatial partitioning removes most comparisons.",
+        "c": "Parallelism is not inherent.",
+        "d": "Distances are exact."
+      },
+      "correctAnswer": "b",
+      "difficulty": "intermediate"
+    },
+
+    {
+      "question": "If the strip contains no points, what is the final closest pair result?",
+      "answers": {
+        "a": "Always from the left half",
+        "b": "Always from the right half",
+        "c": "The minimum of left and right recursive results",
+        "d": "No pair exists"
+      },
+      "explanations": {
+        "a": "Not guaranteed.",
+        "b": "Not guaranteed.",
+        "c": "If strip is empty, cross-pairs are impossible.",
+        "d": "Pairs still exist."
+      },
+      "correctAnswer": "c",
+      "difficulty": "intermediate"
+    },
+
+    {
+      "question": "Which stage of the algorithm is responsible for reducing time complexity from O(n²) to O(n log n)?",
+      "answers": {
+        "a": "Brute force base case",
+        "b": "Sorting",
+        "c": "Spatial partitioning + strip optimization",
+        "d": "Recursion alone"
+      },
+      "explanations": {
+        "a": "Brute force increases complexity.",
+        "b": "Sorting alone is O(n log n) but not sufficient.",
+        "c": "This eliminates most unnecessary comparisons.",
+        "d": "Recursion without pruning still leads to n²."
+      },
+      "correctAnswer": "c",
+      "difficulty": "intermediate"
+    },
+
+    {
+      "question": "What is the correct logical sequence of operations in the algorithm?",
+      "answers": {
+        "a": "Divide → Sort → Strip → Conquer",
+        "b": "Sort → Divide → Conquer → Combine (Strip)",
+        "c": "Strip → Sort → Divide → Conquer",
+        "d": "Conquer → Divide → Sort → Strip"
+      },
+      "explanations": {
+        "a": "Sorting must come first.",
+        "b": "This is the correct algorithmic flow.",
+        "c": "Strip comes after recursion.",
+        "d": "Order is incorrect."
+      },
+      "correctAnswer": "b",
       "difficulty": "beginner"
     }
   ]
