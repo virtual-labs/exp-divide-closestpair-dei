@@ -18,7 +18,7 @@
 
         <!-- ========== SIMULATION VIEW (Page 1) ========== -->
         <div id="simulationView" class="simulation-view">
-            <!-- CONFIGURATION & DATA PANEL -->
+            <!-- CONFIGURATION & DATA PANEL (compact) -->
             <section class="config-panel" style="position: relative;">
                 <div class="controls-row">
                     <!-- Random Input -->
@@ -33,8 +33,6 @@
                         <option value="random">Random</option>
                         <option value="manual">Manual</option>
                     </select>
-
-                    <!-- mode select stays -->
 
                     <!-- Action Buttons -->
                     <button id="btnLoad" class="btn btn-primary">Load</button>
@@ -67,9 +65,47 @@
 
                 <!-- VISUALIZATION -->
                 <div class="viz-container">
-                    <div class="canvas-frame">
-                        <canvas id="mainCanvas"></canvas>
+                    <!-- Tab Toggle (compact) -->
+                    <div class="viz-tabs-wrapper">
+                        <div class="viz-tabs">
+                            <button id="tabGeometry" class="viz-tab active" data-tab="geometry">Geometry View</button>
+                            <button id="tabRecursion" class="viz-tab" data-tab="recursion">Recursion Tree</button>
+                        </div>
+                        <!-- Tab lock tooltip (hidden by default) -->
+                        <div id="tabLockMsg" class="tab-lock-msg hidden">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            Locked during autoplay
+                        </div>
                     </div>
+
+                    <!-- Geometry View (existing) -->
+                    <div id="geometryView" class="tab-content active">
+                        <div class="canvas-frame">
+                            <canvas id="mainCanvas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Recursion Tree View (new) -->
+                    <div id="recursionTreeView" class="tab-content">
+                        <div class="tree-frame">
+                            <div id="treeContainer" class="tree-container">
+                                <div class="tree-placeholder">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
+                                        <circle cx="12" cy="5" r="3"/>
+                                        <circle cx="5" cy="17" r="3"/>
+                                        <circle cx="19" cy="17" r="3"/>
+                                        <line x1="10" y1="7.5" x2="6.5" y2="14.5"/>
+                                        <line x1="14" y1="7.5" x2="17.5" y2="14.5"/>
+                                    </svg>
+                                    <p>Generate points and step through to see the recursion tree.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="stats-bar">
                         <span>Min Distance: <b id="currentMinVal">-</b></span>
                         <span>Comparisons: <b id="compCount">-</b></span>
@@ -92,17 +128,29 @@
                         <button id="btnNext" class="btn btn-nav">Next &rarr;</button>
                     </div>
 
+                    <!-- Mode indicator -->
+                    <div id="modeIndicator" class="mode-indicator">
+                        <span class="mode-label">Mode:</span>
+                        <span id="modeText" class="mode-value">Geometry</span>
+                    </div>
+
                     <div class="step-log-container">
                         <div class="log-header">
-                            <h3>STEPS</h3>
+                            <h3 id="logTitle">GEOMETRY STEPS</h3>
                             <span class="step-info">Steps: <b id="stepCounter">0/0</b></span>
                         </div>
+                        <!-- Geometry Log (default visible) -->
                         <div id="logContainer" class="log-list">
                             <div class="log-entry system">Ready. Generate points to begin.</div>
                         </div>
+                        <!-- Recursion Log (hidden by default) -->
+                        <div id="recursionLogContainer" class="log-list hidden">
+                            <div class="log-entry system">Switch to Recursion Tree to see recursion steps.</div>
+                        </div>
                     </div>
 
-                    <div class="legend">
+                    <!-- Geometry Legend (shown when geometry tab active) -->
+                    <div id="geometryLegend" class="legend">
                         <h4>Legend</h4>
                         <div class="legend-items">
                             <div class="legend-item">
@@ -113,6 +161,25 @@
                             </div>
                             <div class="legend-item">
                                 <span class="dot" style="background:#16a34a"></span> Best Pair
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recursion Legend (shown when recursion tab active) -->
+                    <div id="recursionLegend" class="legend hidden">
+                        <h4>Tree Legend</h4>
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <span class="dot" style="background:#38bdf8"></span> Active Node
+                            </div>
+                            <div class="legend-item">
+                                <span class="dot" style="background:#a78bfa"></span> Base Case
+                            </div>
+                            <div class="legend-item">
+                                <span class="dot" style="background:#22c55e"></span> Completed
+                            </div>
+                            <div class="legend-item">
+                                <span class="dot" style="background:#334155"></span> Unvisited
                             </div>
                         </div>
                     </div>

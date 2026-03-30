@@ -4,50 +4,50 @@
     {
       "question": "What is the goal of the Closest Pair of Points problem?",
       "answers": {
-        "a": "To find the point closest to the origin",
-        "b": "To find the pair of points with the minimum Euclidean distance",
-        "c": "To sort points based on distance",
-        "d": "To divide points into two equal halves"
+        "a": "To sort points based on distance",
+        "b": "To find the point closest to the origin",
+        "c": "To divide points into two equal halves",
+        "d": "To find the pair of points with the minimum Euclidean distance"
       },
       "explanations": {
-        "a": "This problem does not focus on distance from the origin.",
-        "b": "The objective is to identify the two closest points in the given set.",
-        "c": "Sorting is a supporting step, not the goal.",
-        "d": "Division is part of the optimized strategy, not the final objective."
+        "a": "Sorting is a supporting step.",
+        "b": "Not about origin.",
+        "c": "Division is not the goal.",
+        "d": "Correct — find closest pair."
       },
-      "correctAnswer": "b",
+      "correctAnswer": "d",
       "difficulty": "beginner"
     },
     {
       "question": "Which distance metric is commonly used in the Closest Pair of Points problem?",
       "answers": {
         "a": "Manhattan distance",
-        "b": "Chebyshev distance",
-        "c": "Euclidean distance",
-        "d": "Hamming distance"
+        "b": "Euclidean distance",
+        "c": "Hamming distance",
+        "d": "Chebyshev distance"
       },
       "explanations": {
-        "a": "Manhattan distance measures grid-based movement.",
-        "b": "Chebyshev distance is used in specific grid scenarios.",
-        "c": "Euclidean distance measures straight-line distance in a plane.",
-        "d": "Hamming distance applies to strings or binary data."
+        "a": "Used in grid-based paths.",
+        "b": "Correct — standard geometric distance.",
+        "c": "Used for strings/binary.",
+        "d": "Special grid cases."
       },
-      "correctAnswer": "c",
+      "correctAnswer": "b",
       "difficulty": "beginner"
     },
     {
       "question": "What is the time complexity of the brute force approach for finding the closest pair among n points?",
       "answers": {
-        "a": "O(n)",
-        "b": "O(n log n)",
+        "a": "O(n log n)",
+        "b": "O(n)",
         "c": "O(n²)",
         "d": "O(log n)"
       },
       "explanations": {
-        "a": "A linear scan cannot compare all pairs.",
-        "b": "This complexity corresponds to the optimized approach.",
-        "c": "Brute force checks every possible pair, resulting in quadratic time.",
-        "d": "Logarithmic time is insufficient for pairwise comparison."
+        "a": "Optimized approach.",
+        "b": "Too low.",
+        "c": "Correct — checks all pairs.",
+        "d": "Too low."
       },
       "correctAnswer": "c",
       "difficulty": "beginner"
@@ -55,33 +55,33 @@
     {
       "question": "Which strategy is used to improve efficiency over brute force in the Closest Pair problem?",
       "answers": {
-        "a": "Greedy method",
-        "b": "Dynamic programming",
-        "c": "Divide and Conquer",
-        "d": "Backtracking"
+        "a": "Divide and Conquer",
+        "b": "Greedy method",
+        "c": "Backtracking",
+        "d": "Dynamic programming"
       },
       "explanations": {
-        "a": "Greedy methods are not suitable for this geometric problem.",
-        "b": "Dynamic programming is not commonly applied here.",
-        "c": "Divide and Conquer reduces comparisons by spatial partitioning.",
-        "d": "Backtracking is used for combinatorial search problems."
+        "a": "Correct — reduces comparisons.",
+        "b": "Not suitable.",
+        "c": "Not used.",
+        "d": "Not typical."
       },
-      "correctAnswer": "c",
+      "correctAnswer": "a",
       "difficulty": "beginner"
     },
     {
       "question": "In the divide and conquer approach, how are points initially divided?",
       "answers": {
-        "a": "Based on Y-coordinate",
+        "a": "Randomly",
         "b": "Based on distance from origin",
         "c": "Based on X-coordinate",
-        "d": "Randomly"
+        "d": "Based on Y-coordinate"
       },
       "explanations": {
-        "a": "Y-coordinate sorting is used later for strip checking.",
-        "b": "Distance from origin does not create balanced partitions.",
-        "c": "Sorting by X-coordinate allows vertical division of the plane.",
-        "d": "Random division does not guarantee efficiency."
+        "a": "Not efficient.",
+        "b": "Not used.",
+        "c": "Correct — split by X.",
+        "d": "Used later."
       },
       "correctAnswer": "c",
       "difficulty": "beginner"
@@ -89,16 +89,16 @@
     {
       "question": "What is the minimum number of points required to compute a closest pair?",
       "answers": {
-        "a": "0",
+        "a": "3",
         "b": "1",
         "c": "2",
-        "d": "3"
+        "d": "0"
       },
       "explanations": {
-        "a": "No points cannot form a pair.",
-        "b": "A single point cannot form a pair.",
-        "c": "Two points are sufficient to compute a distance.",
-        "d": "Three points are not the minimum requirement."
+        "a": "Not minimum.",
+        "b": "Cannot form pair.",
+        "c": "Correct — minimum is 2.",
+        "d": "No points."
       },
       "correctAnswer": "c",
       "difficulty": "beginner"
@@ -106,16 +106,16 @@
     {
       "question": "What is the width of the vertical strip checked during the combine step?",
       "answers": {
-        "a": "d",
+        "a": "d / 2",
         "b": "2d",
-        "c": "d / 2",
-        "d": "n / 2"
+        "c": "n / 2",
+        "d": "d"
       },
       "explanations": {
-        "a": "The strip extends on both sides of the median line.",
-        "b": "The strip width is twice the minimum distance d.",
-        "c": "A smaller strip may miss the closest pair.",
-        "d": "Strip width is unrelated to the number of points."
+        "a": "Too small.",
+        "b": "Correct — width is 2d.",
+        "c": "Unrelated.",
+        "d": "Half strip."
       },
       "correctAnswer": "b",
       "difficulty": "beginner"
@@ -123,18 +123,18 @@
     {
       "question": "Which field of study focuses on problems like Closest Pair of Points?",
       "answers": {
-        "a": "Database Systems",
-        "b": "Computational Geometry",
-        "c": "Operating Systems",
-        "d": "Network Security"
+        "a": "Network Security",
+        "b": "Operating Systems",
+        "c": "Database Systems",
+        "d": "Computational Geometry"
       },
       "explanations": {
-        "a": "Database systems focus on data storage and retrieval.",
-        "b": "Computational Geometry studies algorithms for geometric problems.",
-        "c": "Operating systems manage hardware and processes.",
-        "d": "Network security deals with protection of data."
+        "a": "Security domain.",
+        "b": "OS deals with processes.",
+        "c": "Databases store data.",
+        "d": "Correct — geometric algorithms."
       },
-      "correctAnswer": "b",
+      "correctAnswer": "d",
       "difficulty": "beginner"
     }
   ]

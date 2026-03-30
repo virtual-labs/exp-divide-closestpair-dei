@@ -24,36 +24,36 @@ This file outlines the broad, general, and long-term intentions for developing t
 2. ### experiment-name.md
 The name of the experiment will serve as the title for each page. Ensure the title is precise, simple, and easily understandable for students. A well-chosen name helps learners quickly grasp the focus of the experiment.
 
-    3. ### pretest.json and posttest.json
-    These files are used to assess learners' understanding via multiple-choice, single-answer quizzes:
+3. ### pretest.json and posttest.json
+These files are used to assess learners' understanding via multiple-choice, single-answer quizzes:
 
-    * **Pretest:** To assess prerequisite knowledge before beginning the experiment.
-    * **Posttest:** To evaluate the understanding gained after completing the experiment.
-    * **Learning Unit Quizzes:** To test knowledge specific to each section of the content.
-    Refer to this [example](https://eerc01-iiith.vlabs.ac.in/exp/compression-test-experiment/) for the correct format of pretest and posttest pages.
+* **Pretest:** To assess prerequisite knowledge before beginning the experiment.
+* **Posttest:** To evaluate the understanding gained after completing the experiment.
+* **Learning Unit Quizzes:** To test knowledge specific to each section of the content.
+Refer to this [example](https://eerc01-iiith.vlabs.ac.in/exp/compression-test-experiment/) for the correct format of pretest and posttest pages.
 
-    The quiz is structured in a JSON file format. The quiz questions must be represented as an array of objects. Each object corresponds to a question. The quiz consists of multiple questions, each defined as an object with the following attributes:
-    * **question:** The text of the question to be presented to the user.
-    * **answers:** A set of key-value pairs representing the answer options. The keys (e.g., a, b, c, d) represent the option labels, and the values are the actual answer choices.
-    * **correctAnswer:** The correct answer, indicated by the corresponding option label (a, b, c, or d).
-    
-    Example:
+The quiz is structured in a JSON file format. The quiz questions must be represented as an array of objects. Each object corresponds to a question. The quiz consists of multiple questions, each defined as an object with the following attributes:
+* **question:** The text of the question to be presented to the user.
+* **answers:** A set of key-value pairs representing the answer options. The keys (e.g., a, b, c, d) represent the option labels, and the values are the actual answer choices.
+* **correctAnswer:** The correct answer, indicated by the corresponding option label (a, b, c, or d).
+  
+Example:
 
-    ```
-    "questions" : [
-        {
-            "question" : "What is 1+2 ?",
-            "answers" : 
-            {
-                "a" : 1,
-                "b" : 2,
-                "c" : 3,
-                "d" : 4
-            },
-            "correctAnswer" : c
-        }
-    ]
-    ```
+  ```
+  "questions" : [
+      {
+          "question" : "What is 1+2 ?",
+          "answers" : 
+          {
+              "a" : 1,
+              "b" : 2,
+              "c" : 3,
+              "d" : 4
+          },
+          "correctAnswer" : c
+      }
+  ]
+  ```
 For more details about populating the pretest and posttest json files, please click [here](https://github.com/virtual-labs/ph3-lab-mgmt/blob/dev/docs/quiz.md). 
 
 **Note** 

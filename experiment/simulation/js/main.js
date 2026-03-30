@@ -1,20 +1,466 @@
 /**
+ * Recursion Tree Visualization Module
+ * Renders a binary tree of recursive divide-and-conquer calls.
+ * Node content: n=size, node-type label (Divide/Base Case/Combine),
+ *               dynamic x-range (only on active node), and δ value.
+ * Syncs highlighting with the geometry step panel.
+ */
+const RecursionTreeViz = (() => {
+
+    // Layout config
+    const NODE_W = 120;
+    const NODE_H = 56;
+    const H_GAP = 18;
+    const V_GAP = 44;
+    const PAD_X = 24;
+    const PAD_Y = 20;
+
+    let cachedSVG = null;
+    let lastTreeRef = null;
+
+    // ---------------------------------------------------------
+    // Determine the node-type label: "Divide" / "Base Case" / "Combine"
+    // ---------------------------------------------------------
+    function getNodeTypeLabel(node, nodeState, geoTrace, currentStep) {
+        if (nodeState === 'unvisited') return '';
+
+        // Active node: determine phase from current geometry step
+        if (nodeState === 'active' && currentStep >= 0 && currentStep < geoTrace.length) {
+            const step = geoTrace[currentStep];
+            const meta = step.meta;
+            if (meta.treeNodeId === node.id) {
+                switch (step.type) {
+                    case 'base':
+                    case 'compare':
+                    case 'new_min':
+                        return 'Base Case';
+                    case 'divide':
+                        return 'Divide';
+                    case 'conquer':
+                    case 'strip':
+                    case 'strip_detail':
+                    case 'strip_complete':
+                        return 'Combine';
+                }
+            }
+        }
+
+        // Fallback based on node properties and state
+        if (node.isBaseCase) return 'Base Case';
+        if (nodeState === 'completed') return 'Combine';
+        if (nodeState === 'active' || nodeState === 'visited') return 'Divide';
+        return '';
+    }
+
+    // ---------------------------------------------------------
+    // Get the dynamic x-range text (only shown on active node)
+    // ---------------------------------------------------------
+    function getDynamicXRange(node, nodeState, geoTrace, currentStep) {
+        // Only show x-range on the ACTIVE node for contextual clarity
+        if (nodeState !== 'active') return '';
+
+        if (currentStep >= 0 && currentStep < geoTrace.length) {
+            const step = geoTrace[currentStep];
+            const meta = step.meta;
+
+            if (meta.treeNodeId === node.id) {
+                if (step.type === 'divide') {
+                    return `Splitting ${node.xRange}`;
+                }
+                if (step.type === 'base' || step.type === 'compare' || step.type === 'new_min') {
+                    return `Subset ${node.xRange}`;
+                }
+                if (step.type === 'conquer' || step.type === 'strip' || step.type === 'strip_detail' || step.type === 'strip_complete') {
+                    return `Merging ${node.xRange}`;
+                }
+            }
+        }
+
+        return `${node.xRange}`;
+    }
+
+    // ========================================================
+    // Public: render (or update) the tree
+    // ========================================================
+    function render(treeNodes, recursionTrace, currentGeoStep, geoTrace) {
+        const container = document.getElementById('treeContainer');
+        if (!container) return;
+
+        if (!treeNodes || treeNodes.length === 0) {
+            reset();
+            return;
+        }
+
+        if (treeNodes !== lastTreeRef) {
+            lastTreeRef = treeNodes;
+            fullRender(container, treeNodes, recursionTrace, currentGeoStep, geoTrace || []);
+        } else {
+            updateHighlights(treeNodes, recursionTrace, currentGeoStep, geoTrace || []);
+        }
+    }
+
+    // ========================================================
+    // Public: reset to placeholder
+    // ========================================================
+    function reset() {
+        const container = document.getElementById('treeContainer');
+        if (!container) return;
+        lastTreeRef = null;
+        cachedSVG = null;
+        container.innerHTML = `
+            <div class="tree-placeholder">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
+                    <circle cx="12" cy="5" r="3"/>
+                    <circle cx="5" cy="17" r="3"/>
+                    <circle cx="19" cy="17" r="3"/>
+                    <line x1="10" y1="7.5" x2="6.5" y2="14.5"/>
+                    <line x1="14" y1="7.5" x2="17.5" y2="14.5"/>
+                </svg>
+                <p>Generate points and step through to see the recursion tree.</p>
+            </div>`;
+    }
+
+    // ========================================================
+    // Full layout + SVG creation
+    // ========================================================
+    function fullRender(container, treeNodes, recursionTrace, currentGeoStep, geoTrace) {
+        const positions = layoutTree(treeNodes);
+
+        let minX = Infinity, maxX = -Infinity, maxY = 0;
+        positions.forEach(pos => {
+            if (pos) {
+                if (pos.x - NODE_W / 2 < minX) minX = pos.x - NODE_W / 2;
+                if (pos.x + NODE_W / 2 > maxX) maxX = pos.x + NODE_W / 2;
+                if (pos.y + NODE_H > maxY) maxY = pos.y + NODE_H;
+            }
+        });
+
+        const svgW = (maxX - minX) + PAD_X * 2;
+        const svgH = maxY + PAD_Y * 2;
+        const offsetX = -minX + PAD_X;
+        const offsetY = PAD_Y;
+
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('class', 'tree-svg');
+        svg.setAttribute('width', Math.max(svgW, 300));
+        svg.setAttribute('height', Math.max(svgH, 200));
+        svg.setAttribute('viewBox', `0 0 ${Math.max(svgW, 300)} ${Math.max(svgH, 200)}`);
+
+        // Edges
+        const edgesGroup = document.createElementNS(svgNS, 'g');
+        treeNodes.forEach(node => {
+            if (node.parentId !== null) {
+                const parentPos = positions[node.parentId];
+                const childPos = positions[node.id];
+                if (!parentPos || !childPos) return;
+
+                const x1 = parentPos.x + offsetX;
+                const y1 = parentPos.y + offsetY + NODE_H;
+                const x2 = childPos.x + offsetX;
+                const y2 = childPos.y + offsetY;
+
+                const midY = (y1 + y2) / 2;
+                const path = document.createElementNS(svgNS, 'path');
+                path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`);
+                path.setAttribute('class', 'tree-edge');
+                path.setAttribute('data-parent', node.parentId);
+                path.setAttribute('data-child', node.id);
+                edgesGroup.appendChild(path);
+            }
+        });
+        svg.appendChild(edgesGroup);
+
+        // Nodes
+        const nodesGroup = document.createElementNS(svgNS, 'g');
+        treeNodes.forEach(node => {
+            const pos = positions[node.id];
+            if (!pos) return;
+            const cx = pos.x + offsetX;
+            const cy = pos.y + offsetY;
+
+            const g = document.createElementNS(svgNS, 'g');
+            g.setAttribute('class', 'tree-node-group');
+            g.setAttribute('data-node-id', node.id);
+
+            // Rectangle
+            const rect = document.createElementNS(svgNS, 'rect');
+            rect.setAttribute('x', cx - NODE_W / 2);
+            rect.setAttribute('y', cy);
+            rect.setAttribute('width', NODE_W);
+            rect.setAttribute('height', NODE_H);
+            const depthClass = `depth-${Math.min(node.depth, 4)}`;
+            rect.setAttribute('class', `tree-node-rect ${depthClass}`);
+            g.appendChild(rect);
+
+            // Line 1: n = size (always shown)
+            const title = document.createElementNS(svgNS, 'text');
+            title.setAttribute('x', cx);
+            title.setAttribute('y', cy + 13);
+            title.setAttribute('class', 'tree-node-label title');
+            title.textContent = `n = ${node.size}`;
+            g.appendChild(title);
+
+            // Line 2: Node type label (Divide / Base Case / Combine) — dynamic
+            const nodeType = document.createElementNS(svgNS, 'text');
+            nodeType.setAttribute('x', cx);
+            nodeType.setAttribute('y', cy + 26);
+            nodeType.setAttribute('class', 'tree-node-label node-type');
+            nodeType.setAttribute('data-nodetype', node.id);
+            nodeType.textContent = '';
+            g.appendChild(nodeType);
+
+            // Line 3: Dynamic x-range (only shown when active) — dynamic
+            const xrange = document.createElementNS(svgNS, 'text');
+            xrange.setAttribute('x', cx);
+            xrange.setAttribute('y', cy + 38);
+            xrange.setAttribute('class', 'tree-node-label detail');
+            xrange.setAttribute('data-xrange', node.id);
+            xrange.textContent = '';
+            g.appendChild(xrange);
+
+            // Line 4: Delta value — dynamic
+            const delta = document.createElementNS(svgNS, 'text');
+            delta.setAttribute('x', cx);
+            delta.setAttribute('y', cy + 50);
+            delta.setAttribute('class', 'tree-node-label delta');
+            delta.setAttribute('data-delta', node.id);
+            delta.textContent = '';
+            g.appendChild(delta);
+
+            nodesGroup.appendChild(g);
+        });
+        svg.appendChild(nodesGroup);
+
+        container.innerHTML = '';
+        container.appendChild(svg);
+
+        cachedSVG = svg;
+
+        updateHighlights(treeNodes, recursionTrace, currentGeoStep, geoTrace);
+    }
+
+    // ========================================================
+    // Layout: Reingold-Tilford-like tree positioning
+    // ========================================================
+    function layoutTree(treeNodes) {
+        const positions = new Array(treeNodes.length).fill(null);
+        const subtreeWidth = new Array(treeNodes.length).fill(0);
+
+        const root = treeNodes.find(n => n.parentId === null);
+        if (!root) return positions;
+
+        function computeWidth(nodeId) {
+            const node = treeNodes[nodeId];
+            if (node.leftChildId === null && node.rightChildId === null) {
+                subtreeWidth[nodeId] = NODE_W;
+                return NODE_W;
+            }
+
+            let w = 0;
+            if (node.leftChildId !== null) w += computeWidth(node.leftChildId);
+            if (node.rightChildId !== null) {
+                if (w > 0) w += H_GAP;
+                w += computeWidth(node.rightChildId);
+            }
+            subtreeWidth[nodeId] = Math.max(w, NODE_W);
+            return subtreeWidth[nodeId];
+        }
+
+        computeWidth(root.id);
+
+        function assignPositions(nodeId, xCenter, y) {
+            const node = treeNodes[nodeId];
+            positions[nodeId] = { x: xCenter, y };
+
+            if (node.leftChildId === null && node.rightChildId === null) return;
+
+            const childY = y + NODE_H + V_GAP;
+
+            if (node.leftChildId !== null && node.rightChildId !== null) {
+                const leftW = subtreeWidth[node.leftChildId];
+                const rightW = subtreeWidth[node.rightChildId];
+                const totalW = leftW + H_GAP + rightW;
+                const leftCenter = xCenter - totalW / 2 + leftW / 2;
+                const rightCenter = xCenter + totalW / 2 - rightW / 2;
+
+                assignPositions(node.leftChildId, leftCenter, childY);
+                assignPositions(node.rightChildId, rightCenter, childY);
+            } else if (node.leftChildId !== null) {
+                assignPositions(node.leftChildId, xCenter, childY);
+            } else if (node.rightChildId !== null) {
+                assignPositions(node.rightChildId, xCenter, childY);
+            }
+        }
+
+        assignPositions(root.id, 0, 0);
+        return positions;
+    }
+
+    // ========================================================
+    // Update highlighting based on current step
+    // ========================================================
+    function updateHighlights(treeNodes, recursionTrace, currentGeoStep, geoTrace) {
+        if (!cachedSVG) return;
+
+        const nodeStates = new Array(treeNodes.length).fill('unvisited');
+
+        // Determine active treeNodeId from current geometry step
+        let activeNodeId = null;
+        if (currentGeoStep >= 0 && currentGeoStep < geoTrace.length) {
+            activeNodeId = geoTrace[currentGeoStep].meta.treeNodeId;
+            if (activeNodeId === undefined) activeNodeId = null;
+        }
+
+        // Mark visited / completed nodes based on step indices
+        treeNodes.forEach(node => {
+            if (node.firstStepIndex === null) return;
+
+            if (currentGeoStep >= node.firstStepIndex) {
+                if (node.lastStepIndex !== null && currentGeoStep > node.lastStepIndex) {
+                    nodeStates[node.id] = 'completed';
+                } else {
+                    nodeStates[node.id] = 'visited';
+                }
+            }
+        });
+
+        // Override active node
+        if (activeNodeId !== null && activeNodeId < treeNodes.length) {
+            nodeStates[activeNodeId] = 'active';
+        }
+
+        // Apply classes and dynamic text to SVG nodes
+        treeNodes.forEach(node => {
+            const g = cachedSVG.querySelector(`[data-node-id="${node.id}"]`);
+            if (!g) return;
+
+            const rect = g.querySelector('.tree-node-rect');
+            if (!rect) return;
+
+            const depthClass = `depth-${Math.min(node.depth, 4)}`;
+            rect.setAttribute('class', `tree-node-rect ${depthClass}`);
+
+            const st = nodeStates[node.id];
+            if (st === 'active') {
+                rect.classList.add('active');
+                if (node.isBaseCase) rect.classList.add('base-case');
+            } else if (st === 'completed') {
+                rect.classList.add('completed');
+                if (node.isBaseCase) rect.classList.add('base-case');
+            } else if (st === 'visited') {
+                rect.classList.add('visited');
+            }
+
+            // ---- Update node type label (Divide / Base Case / Combine) ----
+            const nodeTypeEl = cachedSVG.querySelector(`[data-nodetype="${node.id}"]`);
+            if (nodeTypeEl) {
+                const label = getNodeTypeLabel(node, st, geoTrace, currentGeoStep);
+                nodeTypeEl.textContent = label;
+
+                // Color the label based on type
+                if (label === 'Base Case') {
+                    nodeTypeEl.setAttribute('fill', '#c4b5fd'); // light purple
+                } else if (label === 'Combine') {
+                    nodeTypeEl.setAttribute('fill', '#86efac'); // light green
+                } else if (label === 'Divide') {
+                    nodeTypeEl.setAttribute('fill', '#7dd3fc'); // light blue
+                } else {
+                    nodeTypeEl.setAttribute('fill', '#64748b');
+                }
+            }
+
+            // ---- Update dynamic x-range (only on active node) ----
+            const xrangeEl = cachedSVG.querySelector(`[data-xrange="${node.id}"]`);
+            if (xrangeEl) {
+                const xrangeText = getDynamicXRange(node, st, geoTrace, currentGeoStep);
+                xrangeEl.textContent = xrangeText;
+            }
+
+            // ---- Update delta text ----
+            const deltaEl = cachedSVG.querySelector(`[data-delta="${node.id}"]`);
+            if (deltaEl) {
+                if (node.delta !== null && st !== 'unvisited' && node.delta !== Infinity) {
+                    deltaEl.textContent = `δ = ${node.delta.toFixed(2)}`;
+                } else {
+                    deltaEl.textContent = '';
+                }
+            }
+        });
+
+        // Update edge classes
+        const edges = cachedSVG.querySelectorAll('.tree-edge');
+        edges.forEach(edge => {
+            const parentId = parseInt(edge.getAttribute('data-parent'));
+            const childId = parseInt(edge.getAttribute('data-child'));
+
+            edge.setAttribute('class', 'tree-edge');
+
+            const childState = nodeStates[childId];
+            const parentState = nodeStates[parentId];
+
+            if (childState === 'active' || parentState === 'active') {
+                edge.classList.add('active');
+            } else if (childState === 'completed' && parentState === 'completed') {
+                edge.classList.add('completed');
+            } else if (childState === 'completed' || childState === 'visited') {
+                edge.classList.add('visited');
+            }
+        });
+
+        // Scroll to active node
+        if (activeNodeId !== null) {
+            const activeGroup = cachedSVG.querySelector(`[data-node-id="${activeNodeId}"]`);
+            if (activeGroup) {
+                const rect = activeGroup.querySelector('.tree-node-rect');
+                if (rect) {
+                    const container = document.getElementById('treeContainer');
+                    const nodeX = parseFloat(rect.getAttribute('x'));
+                    const nodeY = parseFloat(rect.getAttribute('y'));
+
+                    const containerRect = container.getBoundingClientRect();
+                    const scrollX = nodeX - containerRect.width / 2 + NODE_W / 2;
+                    const scrollY = nodeY - containerRect.height / 2 + NODE_H / 2;
+
+                    container.scrollTo({
+                        left: Math.max(0, scrollX),
+                        top: Math.max(0, scrollY),
+                        behavior: 'smooth'
+                    });
+                }
+            }
+        }
+    }
+
+    return { render, reset };
+
+})();
+
+/**
  * Closest Pair - Divide and Conquer Simulation
  * Layout: Top Controls, Middle Data, Split Content
+ * Enhanced with: Tab system, Autoplay lock, Separate logs, Recursion tree
  */
 
 const state = {
-    points: [],         // Original unsorted points (for ref? or just use sorted)
+    points: [],         // Original unsorted points
     sortedPoints: [],   // Working set
-    trace: [],          // Execution steps
+    trace: [],          // Execution steps (geometry trace)
+    recursionTrace: [], // Separate recursion steps
     currentStep: -1,
     autoPlayId: null,
 
     // Config
     padding: 30,
-    speed: 800, // Default Normal
+    speed: 800,
     width: 0,
-    height: 0
+    height: 0,
+
+    // Tab state
+    activeTab: 'geometry', // 'geometry' | 'recursion'
+
+    // Recursion tree data
+    recursionTree: null
 };
 
 // --- DOM Elements ---
@@ -47,6 +493,24 @@ const el = {
     speedDropdown: document.getElementById('speedDropdown'),
     speedItems: document.querySelectorAll('.dropdown-item'),
     logBox: document.getElementById('logContainer'),
+    recursionLogBox: document.getElementById('recursionLogContainer'),
+
+    // Log title
+    logTitle: document.getElementById('logTitle'),
+
+    // Mode indicator
+    modeText: document.getElementById('modeText'),
+
+    // Tab elements
+    tabGeometry: document.getElementById('tabGeometry'),
+    tabRecursion: document.getElementById('tabRecursion'),
+    geometryView: document.getElementById('geometryView'),
+    recursionTreeView: document.getElementById('recursionTreeView'),
+    tabLockMsg: document.getElementById('tabLockMsg'),
+
+    // Legends
+    geometryLegend: document.getElementById('geometryLegend'),
+    recursionLegend: document.getElementById('recursionLegend'),
 
     // Modal
     btnParams: document.getElementById('btnDynamicParams'),
@@ -110,7 +574,7 @@ function init() {
     el.speedItems.forEach(item => {
         item.addEventListener('click', (e) => {
             const val = parseInt(e.target.dataset.speed);
-            e.stopPropagation(); // Don't trigger window click
+            e.stopPropagation();
             handleSpeedSelection(val);
         });
     });
@@ -148,6 +612,86 @@ function init() {
 
     // Initial button state
     el.btnParams.disabled = true;
+
+    // ===== Tab Switching =====
+    initTabSwitching();
+}
+
+// ============================================
+// TAB SWITCHING with Autoplay Lock
+// ============================================
+function initTabSwitching() {
+    el.tabGeometry.addEventListener('click', () => {
+        if (state.autoPlayId) return; // LOCKED during autoplay
+        switchTab('geometry');
+    });
+    el.tabRecursion.addEventListener('click', () => {
+        if (state.autoPlayId) return; // LOCKED during autoplay
+        switchTab('recursion');
+    });
+}
+
+function switchTab(tab) {
+    state.activeTab = tab;
+
+    // Tab buttons
+    el.tabGeometry.classList.toggle('active', tab === 'geometry');
+    el.tabRecursion.classList.toggle('active', tab === 'recursion');
+
+    // Content areas
+    el.geometryView.classList.toggle('active', tab === 'geometry');
+    el.recursionTreeView.classList.toggle('active', tab === 'recursion');
+
+    // Step logs: show the right one
+    el.logBox.classList.toggle('hidden', tab !== 'geometry');
+    el.recursionLogBox.classList.toggle('hidden', tab !== 'recursion');
+
+    // Log title
+    el.logTitle.textContent = tab === 'geometry' ? 'GEOMETRY STEPS' : 'RECURSION STEPS';
+
+    // Mode indicator
+    el.modeText.textContent = tab === 'geometry' ? 'Geometry' : 'Recursion';
+    el.modeText.style.color = tab === 'geometry' ? '#2563eb' : '#7c3aed';
+
+    // Legends
+    el.geometryLegend.classList.toggle('hidden', tab !== 'geometry');
+    el.recursionLegend.classList.toggle('hidden', tab !== 'recursion');
+
+    // Update step counter for the active tab
+    updateStepCounterForTab();
+
+    if (tab === 'geometry') {
+        resizeCanvas();
+    } else if (tab === 'recursion' && typeof RecursionTreeViz !== 'undefined') {
+        RecursionTreeViz.render(state.recursionTree, state.recursionTrace, state.currentStep, state.trace);
+    }
+}
+
+function updateStepCounterForTab() {
+    if (state.activeTab === 'geometry') {
+        const total = state.trace.length;
+        const current = state.currentStep >= 0 ? state.currentStep + 1 : 0;
+        el.stepCounter.textContent = `${current}/${total}`;
+    } else {
+        const total = state.recursionTrace.length;
+        // Find how many recursion steps correspond to current geometry step
+        let recStep = 0;
+        if (state.currentStep >= 0) {
+            for (let i = 0; i < state.recursionTrace.length; i++) {
+                if (state.recursionTrace[i].geoStepIndex <= state.currentStep) {
+                    recStep = i + 1;
+                }
+            }
+        }
+        el.stepCounter.textContent = `${recStep}/${total}`;
+    }
+}
+
+function updateTabLock() {
+    const isLocked = state.autoPlayId !== null;
+    el.tabGeometry.classList.toggle('disabled', isLocked && state.activeTab !== 'geometry');
+    el.tabRecursion.classList.toggle('disabled', isLocked && state.activeTab !== 'recursion');
+    el.tabLockMsg.classList.toggle('hidden', !isLocked);
 }
 
 function resizeCanvas() {
@@ -164,9 +708,8 @@ function resizeCanvas() {
 // Handle mode change
 function handleModeChange() {
     const mode = el.inputMode.value;
-    el.coordResult.textContent = ''; // Clear previous results
+    el.coordResult.textContent = '';
 
-    // Always show point count input as per request
     el.randomInput.classList.remove('hidden');
 
     if (mode === 'random') {
@@ -218,7 +761,7 @@ function loadManualPoints() {
 
     try {
         const points = [];
-        const parts = input.split(/\s+/); // Split by whitespace
+        const parts = input.split(/\s+/);
 
         parts.forEach((part, idx) => {
             const coords = part.split(',');
@@ -249,7 +792,6 @@ function loadManualPoints() {
             throw new Error(`Please enter exactly ${requiredN} points as specified in 'no. of points'`);
         }
 
-        // Check for overlapping/too close points (logical distance check)
         const minAllowedDist = 12;
         for (let i = 0; i < points.length; i++) {
             for (let j = i + 1; j < points.length; j++) {
@@ -262,16 +804,16 @@ function loadManualPoints() {
             }
         }
 
-        // Load the points
         state.points = points;
         updateCoordinateList(state.points);
         prepareSimulation();
 
         state.currentStep = -1;
         el.logBox.innerHTML = '<div class="log-entry system">Custom points loaded. Ready to start.</div>';
+        el.recursionLogBox.innerHTML = '<div class="log-entry system">Custom points loaded. Step through to see recursion.</div>';
         el.minVal.textContent = '-';
         el.compCount.textContent = '0';
-        el.stepCounter.textContent = '0/0';
+        updateStepCounterForTab();
         updateButtons();
         draw();
 
@@ -286,40 +828,33 @@ function generateExperiment() {
 
     const rawVal = el.inputN.value.trim();
 
-    // Check for empty or non-numeric
     if (rawVal === '' || isNaN(Number(rawVal))) {
         alert("Invalid Input: Please enter a valid integer number (e.g., 10).");
-        resetExperiment(); // Ensure controls are disabled
+        resetExperiment();
         return;
     }
 
     const n = Number(rawVal);
 
-    // Check for Integer
     if (!Number.isInteger(n)) {
         alert("Invalid Input: N must be an integer.");
         resetExperiment();
         return;
     }
 
-    // Critical Edge Case: N < 2
     if (n < 2) {
         alert("Closest pair requires at least 2 points.");
         resetExperiment();
         return;
     }
 
-    // Optional: Max limit check based on prev HTML
-    // Visualization Clarity Limit
     if (n > 20) {
         alert("Please choose N <= 20 for better understanding of visualization.");
-        // resetExperiment(); // Don't reset everything, just let them fix N
         return;
     }
 
-    // 1. Generate Points with distance check to avoid label overlap
     state.points = [];
-    const minStepDist = 12; // Increased for label clarity
+    const minStepDist = 12;
     for (let i = 0; i < n; i++) {
         let p;
         let attempts = 0;
@@ -327,7 +862,7 @@ function generateExperiment() {
         while (!valid && attempts < 100) {
             p = {
                 id: i,
-                x: Math.floor(Math.random() * 90) + 5, // Keep away from edges
+                x: Math.floor(Math.random() * 90) + 5,
                 y: Math.floor(Math.random() * 90) + 5
             };
             valid = state.points.every(existing => {
@@ -340,21 +875,21 @@ function generateExperiment() {
         state.points.push(p);
     }
 
-    // Update Coordinate List UI
     updateCoordinateList(state.points);
-
-    // 2. Prepare Simulation (Sort & Trace)
     prepareSimulation();
 
-    // Reset UI State
     state.currentStep = -1;
     el.logBox.innerHTML = '<div class="log-entry system">Experiment Generated. Ready to start.</div>';
+    el.recursionLogBox.innerHTML = '<div class="log-entry system">Experiment Generated. Step through to see recursion.</div>';
     el.minVal.textContent = '-';
     el.compCount.textContent = '0';
-    el.stepCounter.textContent = '0/0';
+    updateStepCounterForTab();
     updateButtons();
 
-    draw(); // Initial draw (unsorted)
+    draw();
+
+    // Switch to geometry tab on new experiment
+    switchTab('geometry');
 }
 
 function resetExperiment() {
@@ -362,8 +897,10 @@ function resetExperiment() {
     state.points = [];
     state.sortedPoints = [];
     state.trace = [];
+    state.recursionTrace = [];
     state.currentStep = -1;
     state.stats = null;
+    state.recursionTree = null;
 
     // Reset UI State
     el.coordPlaceholder.classList.remove('hidden');
@@ -374,6 +911,7 @@ function resetExperiment() {
     el.randomInput.classList.remove('hidden');
     el.inputN.value = '10';
     el.logBox.innerHTML = '<div class="log-entry system">Ready. Generate points to begin.</div>';
+    el.recursionLogBox.innerHTML = '<div class="log-entry system">Switch to Recursion Tree to see recursion steps.</div>';
     el.minVal.textContent = '-';
     el.compCount.textContent = '-';
     el.stepCounter.textContent = '0/0';
@@ -383,12 +921,17 @@ function resetExperiment() {
 
     // Clear Canvas
     el.ctx.clearRect(0, 0, state.width, state.height);
+
+    // Reset recursion tree view
+    if (typeof RecursionTreeViz !== 'undefined') {
+        RecursionTreeViz.reset();
+    }
+
+    // Switch back to geometry
+    switchTab('geometry');
 }
 
 function updateCoordinateList(points) {
-    const mode = el.inputMode.value;
-
-    // Hide placeholder and manual input after successful load
     el.coordPlaceholder.classList.add('hidden');
     el.manualInput.classList.add('hidden');
 
@@ -401,11 +944,46 @@ function updateCoordinateList(points) {
 
 function prepareSimulation() {
     state.trace = [];
+    state.recursionTrace = [];
     let comparisons = 0;
 
-    // Helper to push steps
+    // ===== Recursion tree building =====
+    let treeNodeId = 0;
+    const treeNodes = [];
+
+    function createTreeNode(pointsSubset, depth, parentId) {
+        const id = treeNodeId++;
+        const ids = pointsSubset.map(p => p.id);
+        const sortedIds = [...ids].sort((a, b) => a - b);
+        const minX = Math.min(...pointsSubset.map(p => p.x));
+        const maxX = Math.max(...pointsSubset.map(p => p.x));
+        const node = {
+            id,
+            depth,
+            parentId,
+            leftChildId: null,
+            rightChildId: null,
+            size: pointsSubset.length,
+            pointIds: sortedIds,
+            rangeLabel: `Points[${sortedIds[0]}..${sortedIds[sortedIds.length - 1]}]`,
+            xRange: `x: ${minX.toFixed(0)}–${maxX.toFixed(0)}`,
+            isBaseCase: pointsSubset.length <= 3,
+            delta: null,
+            firstStepIndex: null,
+            lastStepIndex: null
+        };
+        treeNodes.push(node);
+        return node;
+    }
+
+    // Helper to push geometry steps
     const record = (type, msg, meta = {}) => {
         state.trace.push({ type, msg, meta: { ...meta, comparisons } });
+    };
+
+    // Helper to push recursion steps
+    const recordRecursion = (type, msg, treeNodeId, geoStepIndex) => {
+        state.recursionTrace.push({ type, msg, treeNodeId, geoStepIndex });
     };
 
     // Step 1: Sorting
@@ -417,11 +995,16 @@ function prepareSimulation() {
     const sorted = [...state.points].sort((a, b) => a.x - b.x);
     state.sortedPoints = sorted;
 
+    const minXAll = Math.min(...sorted.map(p => p.x));
+    const maxXAll = Math.max(...sorted.map(p => p.x));
+
     record('sort', 'Sorting Complete. Starting the recursive Divide & Conquer algorithm.', {
         stage: 'sorting',
         sorted: true,
         activePoints: sorted
     });
+
+    recordRecursion('info', `Start with all points (n = ${sorted.length})\n- Root node represents entire dataset\n- Points are sorted by X-coordinate\n- Recursively divide until n ≤ 3`, null, state.trace.length - 1);
 
     // --- Divide & Conquer Algo ---
 
@@ -430,7 +1013,7 @@ function prepareSimulation() {
         return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
     }
 
-    function bruteForce(points, parentMeta) {
+    function bruteForce(points, parentMeta, treeNodeObj) {
         let minD = Infinity;
         let pair = [];
 
@@ -441,7 +1024,8 @@ function prepareSimulation() {
                 record('compare', `Checking pair P${points[i].id + 1} and P${points[j].id + 1}. Dist: ${d.toFixed(2)}`, {
                     ...parentMeta,
                     highlight: [points[i], points[j]],
-                    currentMin: minD
+                    currentMin: minD,
+                    treeNodeId: treeNodeObj.id
                 });
 
                 if (d < minD) {
@@ -450,7 +1034,8 @@ function prepareSimulation() {
                     record('new_min', `New local minimum ${d.toFixed(2)} found between P${points[i].id + 1} and P${points[j].id + 1}.`, {
                         ...parentMeta,
                         bestPair: pair,
-                        currentMin: minD
+                        currentMin: minD,
+                        treeNodeId: treeNodeObj.id
                     });
                 }
             }
@@ -458,23 +1043,46 @@ function prepareSimulation() {
         return { min: minD, pair: pair };
     }
 
-    function solveRecursive(px, py) {
+    function solveRecursive(px, py, depth, parentId) {
         const n = px.length;
+        const treeNode = createTreeNode(px, depth, parentId);
 
         // Base Case
         if (n <= 3) {
-            record('base', `<b>Base Case</b> (N=${n}): Region is small enough to check all pairs directly using Brute Force.`, { activeRegion: px });
-            return bruteForce(px, { activeRegion: px });
+            treeNode.firstStepIndex = state.trace.length;
+
+            record('base', `<b>Base Case</b> (N=${n}): Region is small enough to check all pairs directly using Brute Force.`, {
+                activeRegion: px,
+                treeNodeId: treeNode.id
+            });
+
+            const bcMinX = Math.min(...px.map(p => p.x));
+            const bcMaxX = Math.max(...px.map(p => p.x));
+            recordRecursion('base', `Base Case (n = ${n})\n- Subset X-range: ${bcMinX.toFixed(0)}–${bcMaxX.toFixed(0)}\n- Too few points to divide further\n- Compute all pairwise distances directly`, treeNode.id, state.trace.length - 1);
+
+            const result = bruteForce(px, { activeRegion: px }, treeNode);
+            treeNode.delta = result.min;
+            treeNode.lastStepIndex = state.trace.length - 1;
+
+            recordRecursion('result', `✓ Base case solved: δ = ${result.min.toFixed(2)}\n- Closest pair found by brute force\n- Return result to parent`, treeNode.id, state.trace.length - 1);
+
+            return result;
         }
 
         // Divide
         const mid = Math.floor(n / 2);
         const midPoint = px[mid];
 
+        treeNode.firstStepIndex = state.trace.length;
+        const divMinX = Math.min(...px.map(p => p.x));
+        const divMaxX = Math.max(...px.map(p => p.x));
         record('divide', `<b>Divide:</b> Splitting the current group of ${n} points at X = ${midPoint.x.toFixed(1)} into two halves.`, {
             activeRegion: px,
-            divisionLine: midPoint.x
+            divisionLine: midPoint.x,
+            treeNodeId: treeNode.id
         });
+
+        recordRecursion('divide', `Divide Step (n = ${n})\n- Splitting points in X-range ${divMinX.toFixed(0)}–${divMaxX.toFixed(0)}\n- Median X = ${midPoint.x.toFixed(1)}\n- Left half: ${mid} points  |  Right half: ${n - mid} points`, treeNode.id, state.trace.length - 1);
 
         const PxL = px.slice(0, mid);
         const PxR = px.slice(mid);
@@ -482,8 +1090,17 @@ function prepareSimulation() {
         const PyL = py.filter(p => p.x < midPoint.x || (p.x === midPoint.x && PxL.includes(p)));
         const PyR = py.filter(p => p.x >= midPoint.x && !PyL.includes(p));
 
-        const leftRes = solveRecursive(PxL, PyL);
-        const rightRes = solveRecursive(PxR, PyR);
+        // Recurse left
+        const leftMinX = Math.min(...PxL.map(p => p.x));
+        const leftMaxX = Math.max(...PxL.map(p => p.x));
+        recordRecursion('recurse', `→ Recurse LEFT (n = ${PxL.length})\n- Subset X-range: ${leftMinX.toFixed(0)}–${leftMaxX.toFixed(0)}\n- Continue dividing until n ≤ 3`, treeNode.id, state.trace.length - 1);
+        const leftRes = solveRecursive(PxL, PyL, depth + 1, treeNode.id);
+
+        // Recurse right
+        const rightMinX = Math.min(...PxR.map(p => p.x));
+        const rightMaxX = Math.max(...PxR.map(p => p.x));
+        recordRecursion('recurse', `→ Recurse RIGHT (n = ${PxR.length})\n- Subset X-range: ${rightMinX.toFixed(0)}–${rightMaxX.toFixed(0)}\n- Continue dividing until n ≤ 3`, treeNode.id, state.trace.length - 1);
+        const rightRes = solveRecursive(PxR, PyR, depth + 1, treeNode.id);
 
         // Merge
         let d = Math.min(leftRes.min, rightRes.min);
@@ -493,8 +1110,11 @@ function prepareSimulation() {
             activeRegion: px,
             divisionLine: midPoint.x,
             bestPair: pair,
-            currentMin: d
+            currentMin: d,
+            treeNodeId: treeNode.id
         });
+
+        recordRecursion('conquer', `Combine Step\n- Left returned δL = ${leftRes.min.toFixed(2)}\n- Right returned δR = ${rightRes.min.toFixed(2)}\n- Best so far: δ = min(δL, δR) = ${d.toFixed(2)}`, treeNode.id, state.trace.length - 1);
 
         // Strip
         const strip = py.filter(p => Math.abs(p.x - midPoint.x) < d);
@@ -504,10 +1124,10 @@ function prepareSimulation() {
             divisionLine: midPoint.x,
             stripRegion: { x: midPoint.x, width: d },
             bestPair: pair,
-            currentMin: d
+            currentMin: d,
+            treeNodeId: treeNode.id
         });
 
-        // Log which points are in the strip
         if (strip.length > 0) {
             const stripPointsList = strip.map(p => `P${p.id + 1}`).join(', ');
             record('strip_detail', `<b>Strip Points (sorted by Y):</b> ${stripPointsList}. Total: ${strip.length} point(s). Now comparing each pair where Y-distance < δ.`, {
@@ -516,11 +1136,13 @@ function prepareSimulation() {
                 stripRegion: { x: midPoint.x, width: d },
                 stripPoints: strip,
                 bestPair: pair,
-                currentMin: d
+                currentMin: d,
+                treeNodeId: treeNode.id
             });
         }
 
-        // Strip check - with more detailed logging
+        recordRecursion('strip', `Strip Check\n- Strip width = 2δ = ${(2*d).toFixed(2)} around x = ${midPoint.x.toFixed(1)}\n- ${strip.length} point(s) in strip\n- Check for cross-boundary pairs closer than δ`, treeNode.id, state.trace.length - 1);
+
         let stripComparisonCount = 0;
         for (let i = 0; i < strip.length; i++) {
             for (let j = i + 1; j < strip.length && (strip[j].y - strip[i].y) < d; j++) {
@@ -535,7 +1157,8 @@ function prepareSimulation() {
                     highlight: [strip[i], strip[j]],
                     bestPair: pair,
                     currentMin: d,
-                    pairIndex: stripComparisonCount
+                    pairIndex: stripComparisonCount,
+                    treeNodeId: treeNode.id
                 });
 
                 if (d2 < d) {
@@ -548,13 +1171,13 @@ function prepareSimulation() {
                         stripRegion: { x: midPoint.x, width: d },
                         bestPair: pair,
                         currentMin: d,
-                        pairIndex: stripComparisonCount
+                        pairIndex: stripComparisonCount,
+                        treeNodeId: treeNode.id
                     });
                 }
             }
         }
 
-        // Log end of strip comparison
         if (strip.length > 1) {
             record('strip_complete', `<b>Strip Comparison Complete:</b> Checked ${stripComparisonCount} pair(s) in the strip. Final best distance for this region: δ = ${d.toFixed(2)}.`, {
                 activeRegion: px,
@@ -562,9 +1185,15 @@ function prepareSimulation() {
                 stripRegion: { x: midPoint.x, width: d },
                 bestPair: pair,
                 currentMin: d,
-                totalComparisons: stripComparisonCount
+                totalComparisons: stripComparisonCount,
+                treeNodeId: treeNode.id
             });
         }
+
+        treeNode.delta = d;
+        treeNode.lastStepIndex = state.trace.length - 1;
+
+        recordRecursion('result', `✓ Return δ = ${d.toFixed(2)}\n- Combined left, right, and strip results\n- Pass minimum distance back to parent`, treeNode.id, state.trace.length - 1);
 
         return { min: d, pair: pair };
     }
@@ -572,14 +1201,32 @@ function prepareSimulation() {
     // Start
     const Py = [...sorted].sort((a, b) => a.y - b.y);
 
-    // Performance Measurement
     const t0 = performance.now();
-    const result = solveRecursive(sorted, Py);
+    const result = solveRecursive(sorted, Py, 0, null);
     const t1 = performance.now();
+
+    // Fix children IDs properly after full tree is built
+    treeNodes.forEach(node => {
+        node.leftChildId = null;
+        node.rightChildId = null;
+    });
+    treeNodes.forEach(node => {
+        if (node.parentId !== null) {
+            const parent = treeNodes[node.parentId];
+            if (parent.leftChildId === null) {
+                parent.leftChildId = node.id;
+            } else {
+                parent.rightChildId = node.id;
+            }
+        }
+    });
+
+    // Store tree
+    state.recursionTree = treeNodes;
 
     // Store Stats
     state.stats = {
-        execTime: (t1 - t0).toFixed(4), // ms
+        execTime: (t1 - t0).toFixed(4),
         compDC: comparisons,
         compBF: (sorted.length * (sorted.length - 1)) / 2
     };
@@ -590,15 +1237,14 @@ function prepareSimulation() {
         currentMin: result.min
     });
 
-    // Update step counter display with total steps
-    const totalSteps = state.trace.length;
-    el.stepCounter.textContent = `0/${totalSteps}`;
+    recordRecursion('finish', `✓ Algorithm complete! Closest pair distance = ${result.min.toFixed(2)}`, null, state.trace.length - 1);
+
+    updateStepCounterForTab();
 }
 
 // --- Modal Logic ---
 function openParamsModal() {
     if (!state.stats) {
-        // Fallback if no experiment generated
         el.pCompDC.textContent = '-';
         el.pCompBF.textContent = '-';
         el.pSaved.textContent = '-';
@@ -608,7 +1254,7 @@ function openParamsModal() {
         el.pCompBF.textContent = state.stats.compBF;
 
         const saved = state.stats.compBF - state.stats.compDC;
-        el.pSaved.textContent = saved > 0 ? saved : 0; // Should be positive
+        el.pSaved.textContent = saved > 0 ? saved : 0;
 
         el.pExecTime.textContent = state.stats.execTime + ' ms';
     }
@@ -633,12 +1279,13 @@ function step(delta) {
     const s = state.trace[next];
 
     // Update step counter
-    const totalSteps = state.trace.length;
-    const currentStepNum = next + 1;
-    el.stepCounter.textContent = `${currentStepNum}/${totalSteps}`;
+    updateStepCounterForTab();
 
-    // Log update
+    // Update geometry log
     updateLog(next);
+
+    // Update recursion log
+    updateRecursionLog(next);
 
     // Stats update
     if (s.meta.comparisons !== undefined) el.compCount.textContent = s.meta.comparisons;
@@ -646,20 +1293,20 @@ function step(delta) {
 
     updateButtons();
     draw();
+
+    // Sync recursion tree highlighting
+    if (typeof RecursionTreeViz !== 'undefined' && state.recursionTree) {
+        RecursionTreeViz.render(state.recursionTree, state.recursionTrace, state.currentStep, state.trace);
+    }
 }
 
 function updateLog(index) {
-    // Rebuild or Append? User wanted "prev button so i can jump to back step"
-    // Rebuilding is safest for "Jumping".
-    // "I want to see each step as a new line"
-
     el.logBox.innerHTML = '';
     for (let i = 0; i <= index; i++) {
         const item = state.trace[i];
         const row = document.createElement('div');
         row.className = `log-entry ${item.type}`;
         row.innerHTML = `<span class="step-num">Step ${i + 1}:</span> ${item.msg}`;
-        // Add active class to the current step
         if (i === index) {
             row.classList.add('active');
         }
@@ -668,25 +1315,67 @@ function updateLog(index) {
     el.logBox.scrollTop = el.logBox.scrollHeight;
 }
 
+function updateRecursionLog(geoStepIndex) {
+    el.recursionLogBox.innerHTML = '';
+    let activeIdx = -1;
+
+    for (let i = 0; i < state.recursionTrace.length; i++) {
+        const item = state.recursionTrace[i];
+        if (item.geoStepIndex > geoStepIndex) break;
+
+        const row = document.createElement('div');
+        row.className = `log-entry ${item.type}`;
+
+        // Parse multi-line messages: first line = main, lines starting with '- ' = sub-bullets
+        const lines = item.msg.split('\n');
+        let html = `<span class="step-num">R${i + 1}:</span> ${lines[0]}`;
+        if (lines.length > 1) {
+            html += '<div class="rec-sub-list">';
+            for (let li = 1; li < lines.length; li++) {
+                const line = lines[li];
+                if (line.startsWith('- ')) {
+                    html += `<div class="rec-sub-item">${line}</div>`;
+                } else {
+                    html += `<div class="rec-sub-item">${line}</div>`;
+                }
+            }
+            html += '</div>';
+        }
+
+        row.innerHTML = html;
+        el.recursionLogBox.appendChild(row);
+        activeIdx = i;
+    }
+
+    // Highlight the last visible entry
+    if (activeIdx >= 0) {
+        const entries = el.recursionLogBox.querySelectorAll('.log-entry');
+        if (entries.length > 0) {
+            entries[entries.length - 1].classList.add('rec-active');
+        }
+    }
+
+    el.recursionLogBox.scrollTop = el.recursionLogBox.scrollHeight;
+}
+
 function updateButtons() {
-    // Disable Next/Prev if auto-play is active
     const isAutoPlayActive = state.autoPlayId !== null;
 
     el.btnPrev.disabled = isAutoPlayActive || state.currentStep < 0;
     el.btnNext.disabled = isAutoPlayActive || state.currentStep >= state.trace.length - 1;
 
-    // Auto button should be enabled if we have steps
     el.btnAuto.disabled = state.trace.length === 0;
 
-    // Runtime metrics enabled only after completion
     el.btnParams.disabled = (state.currentStep < state.trace.length - 1 || state.trace.length === 0);
+
+    // Update tab lock state
+    updateTabLock();
 }
 
 function toggleAutoPlay(e) {
     if (state.autoPlayId) {
         stopAutoPlay();
     } else {
-        // Toggle Dropdown
         el.speedDropdown.classList.toggle('hidden');
     }
     if (e) e.stopPropagation();
@@ -701,9 +1390,8 @@ function handleSpeedSelection(speed) {
 function startAutoPlay() {
     el.btnAuto.innerHTML = 'Stop';
     el.btnAuto.classList.add('active');
-    updateButtons(); // Disable Next/Prev buttons immediately
+    updateButtons();
 
-    // Recursive loop
     const loop = () => {
         if (state.currentStep < state.trace.length - 1) {
             step(1);
@@ -721,9 +1409,8 @@ function stopAutoPlay() {
     state.autoPlayId = null;
     el.btnAuto.innerHTML = 'Auto Play &#9662;';
     el.btnAuto.classList.remove('active');
-    // Ensure dropdown closed
     if (el.speedDropdown) el.speedDropdown.classList.add('hidden');
-    updateButtons(); // Re-enable Next/Prev buttons when auto-play stops
+    updateButtons();
 }
 
 // --- Drawing Logic ---
@@ -731,7 +1418,6 @@ function stopAutoPlay() {
 function toCanvas(p) {
     const w = state.width - 2 * state.padding;
     const h = state.height - 2 * state.padding;
-    // Invert Y so 0,0 is bottom-left for graph-like feel
     return {
         x: state.padding + (p.x / 100) * w,
         y: state.height - state.padding - (p.y / 100) * h
@@ -743,16 +1429,13 @@ function draw() {
     const h = state.height;
     const ctx = el.ctx;
 
-    // Clear with semi-transparent black for potential trails (or clean clear)
     ctx.clearRect(0, 0, w, h);
 
-    // Grid Background (Subtle)
     drawGrid();
 
-    // Default State
     if (state.currentStep === -1) {
         if (state.points.length > 0) {
-            drawPoints(state.points, '#94a3b8', 4, false); // Grey
+            drawPoints(state.points, '#94a3b8', 4, false);
         }
         return;
     }
@@ -760,20 +1443,17 @@ function draw() {
     const s = state.trace[state.currentStep];
     const m = s.meta;
 
-    // Special handling for SORTING steps - show points ordered by X coordinate
+    // Special handling for SORTING steps
     if (s.type === 'sort' && m.sorted === true && m.activePoints) {
-        // Display sorted points in order with connecting lines showing the sort order
         const sortedPts = m.activePoints;
 
-        // Draw connection lines from left to right showing the sorted order
         for (let i = 0; i < sortedPts.length - 1; i++) {
             const p1 = sortedPts[i];
             const p2 = sortedPts[i + 1];
             const c1 = toCanvas(p1);
             const c2 = toCanvas(p2);
 
-            // Draw arrow indicating sort order
-            ctx.strokeStyle = '#0891b2'; // Dark cyan - more visible
+            ctx.strokeStyle = '#0891b2';
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 4]);
             ctx.beginPath();
@@ -783,9 +1463,8 @@ function draw() {
             ctx.setLineDash([]);
         }
 
-        // Draw X-axis reference line to emphasize sorting by X
         const bottomY = state.height - state.padding;
-        ctx.strokeStyle = '#0891b2'; // Dark cyan
+        ctx.strokeStyle = '#0891b2';
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 4]);
         ctx.beginPath();
@@ -794,33 +1473,27 @@ function draw() {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Label showing sort basis
         drawText(state.padding + 10, bottomY + 20, 'Points sorted by X-coordinate (Left → Right)', '#38bdf8', 'left');
 
-        // Draw all points with special highlighting
         sortedPts.forEach((p, idx) => {
-            let color = '#38bdf8'; // Cyan for sorted points
+            let color = '#38bdf8';
             drawPointNode(p, color, false, (idx + 1) + '');
         });
-        return; // Skip normal rendering for sorting step
+        return;
     }
 
     // 1. Division Line & Halves Shading
     if (m.divisionLine !== undefined) {
         const xPos = toCanvas({ x: m.divisionLine, y: 0 }).x;
 
-        // Left Region Shading
         ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
         ctx.fillRect(0, 0, xPos, h);
 
-        // Right Region Shading
         ctx.fillStyle = 'rgba(255, 0, 0, 0.02)';
         ctx.fillRect(xPos, 0, w - xPos, h);
 
-        // Bold Midline
         drawLine(xPos, 0, xPos, h, '#ffff', 2, [5, 5]);
         drawText(xPos + 5, 20, 'Divide X=' + m.divisionLine.toFixed(1), '#fff');
-        // Bottom label for midline
         drawText(xPos + 5, h - 10, 'x=' + m.divisionLine.toFixed(1), '#94a3b8');
     }
 
@@ -831,11 +1504,9 @@ function draw() {
         const x1 = toCanvas({ x: c - widthVal, y: 0 }).x;
         const x2 = toCanvas({ x: c + widthVal, y: 0 }).x;
 
-        // Strip Fill
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.1)'; // Blue/Grey transparent
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.1)';
         ctx.fillRect(x1, 0, x2 - x1, h);
 
-        // Boundaries
         drawLine(x1, 0, x1, h, 'rgba(56, 189, 248, 0.4)', 1);
         drawLine(x2, 0, x2, h, 'rgba(56, 189, 248, 0.4)', 1);
 
@@ -845,13 +1516,11 @@ function draw() {
     }
 
     // 3. Points
-    // Determine active set
     let activeIds = new Set();
     if (m.activeRegion) m.activeRegion.forEach(p => activeIds.add(p.id));
 
-    // Determine Strip Points (Blue)
     let stripIds = new Set();
-    if (m.stripRegion && m.activeRegion) { // Recalculate which are in strip for visual color
+    if (m.stripRegion && m.activeRegion) {
         m.activeRegion.forEach(p => {
             if (Math.abs(p.x - m.stripRegion.x) < m.stripRegion.width) {
                 stripIds.add(p.id);
@@ -860,51 +1529,39 @@ function draw() {
     }
 
     state.points.forEach(p => {
-        let color = '#475569'; // Default dim grey
+        let color = '#475569';
         let glow = false;
-        if (activeIds.has(p.id)) color = '#94a3b8'; // Active region lighter grey
+        if (activeIds.has(p.id)) color = '#94a3b8';
         if (stripIds.has(p.id)) {
-            color = '#38bdf8'; // Cyan/Blue for Strip
+            color = '#38bdf8';
             glow = true;
         }
 
-        // Draw Point
         drawPointNode(p, color, glow, p.id + 1);
     });
 
     // 4. Comparisons & Highlights
-    // Red Neighborhood Box
     if (m.highlight && m.stripRegion) {
-        // Draw box around the first point (reference point)
         const p1 = m.highlight[0];
-        const d = m.currentMin; // or strip width
+        const d = m.currentMin;
         const c1 = toCanvas(p1);
 
-        // Logical coords for box: [x-d, x+d] ?? No, standard algo is check next 7 points in y range d
-        // Visualizing the delta-by-2delta box:
-        // Width 2d, Height d. Centered on x? No, usually x-d to x+d
-        // Let's draw a box representing the Y-limit constraint
-        const boxW = toCanvas({ x: d, y: 0 }).x - toCanvas({ x: 0, y: 0 }).x; // Scaled width
+        const boxW = toCanvas({ x: d, y: 0 }).x - toCanvas({ x: 0, y: 0 }).x;
         const boxH = Math.abs(toCanvas({ x: 0, y: d }).y - toCanvas({ x: 0, y: 0 }).y);
 
-        ctx.strokeStyle = '#ef4444'; // Red
+        ctx.strokeStyle = '#ef4444';
         ctx.lineWidth = 1;
-        ctx.strokeRect(c1.x - boxW, c1.y, boxW * 2, boxH); // Downwards y is positive in canvas but we inverted?
-        // Wait, toCanvas inverts Y. So +Y usually goes UP.
-        // boxH should be drawn downwards or upwards depending on loop direction.
-        // Loop is j=i+1, sorted by Y. So we look UP?
-        // Let's just draw a box around p1.
+        ctx.strokeRect(c1.x - boxW, c1.y, boxW * 2, boxH);
         ctx.strokeRect(c1.x - boxW, c1.y - boxH, boxW * 2, boxH * 2);
     }
 
     if (m.highlight) {
-        drawConnection(m.highlight[0], m.highlight[1], '#f59e0b', 2); // Orange
+        drawConnection(m.highlight[0], m.highlight[1], '#f59e0b', 2);
     }
 
     if (m.bestPair) {
-        drawConnection(m.bestPair[0], m.bestPair[1], '#22c55e', 3); // Green
+        drawConnection(m.bestPair[0], m.bestPair[1], '#22c55e', 3);
 
-        // Label Distance
         const p1 = m.bestPair[0];
         const p2 = m.bestPair[1];
         const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
@@ -920,12 +1577,10 @@ function drawGrid() {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
 
-    // Vertical
     for (let i = 0; i <= 100; i += 10) {
         const x = toCanvas({ x: i, y: 0 }).x;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, state.height); ctx.stroke();
     }
-    // Horizontal
     for (let i = 0; i <= 100; i += 10) {
         const y = toCanvas({ x: 0, y: i }).y;
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(state.width, y); ctx.stroke();
@@ -940,7 +1595,6 @@ function drawPointNode(p, color, glow, label) {
     const ctx = el.ctx;
     const c = toCanvas(p);
 
-    // Glow effect
     if (glow) {
         ctx.shadowBlur = 10;
         ctx.shadowColor = color;
@@ -952,10 +1606,9 @@ function drawPointNode(p, color, glow, label) {
     ctx.beginPath();
     ctx.arc(c.x, c.y, 4, 0, Math.PI * 2);
     ctx.fill();
-    ctx.shadowBlur = 0; // Reset
+    ctx.shadowBlur = 0;
 
-    // Label
-    ctx.fillStyle = '#94a3b8'; // Lighter grey for coordinate text
+    ctx.fillStyle = '#94a3b8';
     ctx.font = '10px "Roboto Mono"';
     ctx.fillText(`${label}: (${p.x}, ${p.y})`, c.x + 8, c.y + 3);
 }
@@ -974,7 +1627,6 @@ function drawLine(x1, y1, x2, y2, color, w, dash = []) {
 function drawConnection(p1, p2, color, w) {
     const c1 = toCanvas(p1);
     const c2 = toCanvas(p2);
-    // Glow line
     el.ctx.shadowBlur = 5;
     el.ctx.shadowColor = color;
     drawLine(c1.x, c1.y, c2.x, c2.y, color, w);
@@ -986,17 +1638,15 @@ function drawText(x, y, text, color, align = 'left') {
     el.ctx.font = 'bold 12px "Open Sans"';
     el.ctx.textAlign = align;
     el.ctx.fillText(text, x, y);
-    el.ctx.textAlign = 'left'; // Reset
+    el.ctx.textAlign = 'left';
 }
 
 // --- Comparison Logic ---
 
 function resetComparisonUI() {
 
-    // 🚨 Reset rerun flag
     comparisonAlreadyRun = false;
 
-    // Reset all display values
     el.bfTime.textContent = '-';
     el.bfComps.textContent = '-';
     el.bfDist.textContent = '-';
@@ -1013,10 +1663,8 @@ function resetComparisonUI() {
 
     el.statusMsg.textContent = '';
 
-    // Enable Run button again
     el.btnRunComparison.disabled = false;
 
-    // Clear stored data
     compState.points = [];
     compState.bfStats = {};
     compState.dcStats = {};
@@ -1039,19 +1687,16 @@ function runComparisonAnalysis()
         return;
     }
 
-    // 
     if (comparisonAlreadyRun)
     {
         alert("Please Reset before running the analysis with a new value of N.");
         return;
     }
 
-    // Run analysis
     executeComparisonAlgorithms(rawN, el.inputType.value);
 
     updateComparisonUI();
 
-    // Mark as run
     comparisonAlreadyRun = true;
 }
 
@@ -1059,10 +1704,8 @@ function runComparisonAnalysis()
 function executeComparisonAlgorithms(n, type) {
     compState.points = generateCompPoints(n, type);
 
-    // Run multiple iterations for more stable timing averages
     const iterations = n > 500 ? 5 : 20;
 
-    // --- Brute Force ---
     let bfTotalTime = 0;
     let resBF;
     for (let i = 0; i < iterations; i++) {
@@ -1076,7 +1719,6 @@ function executeComparisonAlgorithms(n, type) {
         dist: resBF.minDist
     };
 
-    // --- Divide & Conquer ---
     let dcTotalTime = 0;
     let resDC;
     for (let i = 0; i < iterations; i++) {
@@ -1090,7 +1732,6 @@ function executeComparisonAlgorithms(n, type) {
         dist: resDC.minDist
     };
 
-    // --- Logical Adjustment for Display ---
     if (compState.dcStats.time >= compState.bfStats.time) {
         const baseline = Math.max(compState.bfStats.time, 0.002);
         const ratio = Math.max((n * Math.log2(n)) / (n * n), 0.1);
@@ -1221,4 +1862,3 @@ function updateComparisonUI() {
 
 // Start
 init();
-

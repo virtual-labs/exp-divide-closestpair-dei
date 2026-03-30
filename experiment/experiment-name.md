@@ -1,1 +1,3 @@
-## Divide and Conquer II: Closest Pair of Points in 2D Euclidean Space
+## Divide and Conquer Strategies II: Closest Pair of Points
+
+

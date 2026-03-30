@@ -77,25 +77,49 @@
    - **Green connecting line** → The best (closest) pair found so far  
    - **Labeled points** → Each point is displayed with its index for easy identification  
 
-20. The **Legend** panel at the bottom-right provides a quick reference to these color indicators:
-   - 🔵 Division Line  
-   - 🟠 Review Pair  
-   - 🟢 Best Pair  
+20. **Toggle View (Geometry vs. Recursion Tree)**
 
-<p align="center">
-  <img src="simulation/images/Procedure1.png" width="800">
-</p>
+   The simulation provides two distinct ways to observe the algorithm:
+
+   - **Geometry View (Default)**: Visualizes the points, division lines, and strip region on the 2D plane.  
+   - **Recursion Tree View**: Shows the hierarchical breakdown of recursive calls in a binary tree format.  
+
+   **Switching Tabs**:
+   - Use the **[ Geometry View | Recursion Tree ]** tabs at the top of the visualization area.
+   - **Note**: Tab switching is **locked** during **Auto Play** to ensure visual synchronization. Stop the autoplay or wait for completion to switch views.
+
+21. **Recursion Tree Elements**
+
+   - **Nodes**: Each box represents a subset of points.  
+   - **Labels**: 
+     - **"Divide"** (Blue) → Showing the splitting phase.  
+     - **"Base Case"** (Purple) → Smallest subproblems (n ≤ 3).  
+     - **"Combine"** (Green) → Merging results and checking the strip.  
+   - **Glow/Pulse**: Highlights the active node corresponding to the current step in the log.  
+
+22. **Dual Step Logs**
+
+   The right panel displays **independent logs** for each view:
+   - **Geometry Steps**: Details geometric operations.
+   - **Recursion Steps**: Explains the logic (Divide, Solve, Combine) with educational bullets.
+   
+   The step counter (e.g., `Steps: 5/60`) updates dynamically based on the active tab.
+
+23. The **Legend** panel at the bottom-right provides a quick reference:
+   - 🔵 Division Line / Active Node
+   - 🟠 Review Pair / Base Case
+   - 🟢 Best Pair / Completed Node
 
 ---
 
 ### Facts & Analysis (Runtime Metrics)
 
-21. Monitor real-time metrics displayed in the **stats bar** below the canvas:
+24. Monitor real-time metrics displayed in the **stats bar** below the canvas:
 
    - **Min Distance** → The current minimum distance (δ) found so far  
    - **Comparisons** → The total number of distance comparisons performed  
 
-22. Click the **Runtime Metrics** button (in the stats bar) to open a detailed modal showing:
+25. Click the **Runtime Metrics** button (in the stats bar) to open a detailed modal showing:
 
    - **Total Comparisons (D&C)** – Number of comparisons made by the Divide & Conquer algorithm  
    - **Total Comparisons (Brute Force)** – Number of comparisons a brute force approach would require (N×(N-1)/2)  

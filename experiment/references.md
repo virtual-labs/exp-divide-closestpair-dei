@@ -10,17 +10,13 @@
 
 3. **Joseph O'Rourke**,  
    *Computational Geometry in C*, 2nd Edition, Cambridge University Press, 1998.  
-   (Basic Geometric Concepts and Closest Pair)
-<br>
+   (3.8 Divide and Conquer)
+
 
 ### Website References
 
-1. **GeeksforGeeks** – Closest Pair of Points (Divide and Conquer)  
-   https://www.geeksforgeeks.org/closest-pair-of-points-using-divide-and-conquer-algorithm/
-
-2. **Wikipedia** – Closest Pair of Points Problem  
+1. **Wikipedia** – Closest Pair of Points Problem  
    https://en.wikipedia.org/wiki/Closest_pair_of_points_problem
 
-3. **CP-Algorithms** – Finding the Nearest Pair of Points  
-   https://cp-algorithms.com/geometry/nearest_pair.html
+
 
