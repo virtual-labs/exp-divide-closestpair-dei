@@ -1,0 +1,141 @@
+{
+  "version": 2.0,
+  "questions": [
+    {
+      "question": "What is the goal of the Closest Pair of Points problem?",
+      "answers": {
+        "a": "To sort points based on distance",
+        "b": "To find the point closest to the origin",
+        "c": "To divide points into two equal halves",
+        "d": "To find the pair of points with the minimum Euclidean distance"
+      },
+      "explanations": {
+        "a": "Sorting is a supporting step.",
+        "b": "Not about origin.",
+        "c": "Division is not the goal.",
+        "d": "Correct — find closest pair."
+      },
+      "correctAnswer": "d",
+      "difficulty": "beginner"
+    },
+    {
+      "question": "Which distance metric is commonly used in the Closest Pair of Points problem?",
+      "answers": {
+        "a": "Manhattan distance",
+        "b": "Euclidean distance",
+        "c": "Hamming distance",
+        "d": "Chebyshev distance"
+      },
+      "explanations": {
+        "a": "Used in grid-based paths.",
+        "b": "Correct — standard geometric distance.",
+        "c": "Used for strings/binary.",
+        "d": "Special grid cases."
+      },
+      "correctAnswer": "b",
+      "difficulty": "beginner"
+    },
+    {
+      "question": "What is the time complexity of the brute force approach for finding the closest pair among n points?",
+      "answers": {
+        "a": "O(n log n)",
+        "b": "O(n)",
+        "c": "O(n²)",
+        "d": "O(log n)"
+      },
+      "explanations": {
+        "a": "Optimized approach.",
+        "b": "Too low.",
+        "c": "Correct — checks all pairs.",
+        "d": "Too low."
+      },
+      "correctAnswer": "c",
+      "difficulty": "beginner"
+    },
+    {
+      "question": "Which strategy is used to improve efficiency over brute force in the Closest Pair problem?",
+      "answers": {
+        "a": "Divide and Conquer",
+        "b": "Greedy method",
+        "c": "Backtracking",
+        "d": "Dynamic programming"
+      },
+      "explanations": {
+        "a": "Correct — reduces comparisons.",
+        "b": "Not suitable.",
+        "c": "Not used.",
+        "d": "Not typical."
+      },
+      "correctAnswer": "a",
+      "difficulty": "beginner"
+    },
+    {
+      "question": "In the divide and conquer approach, how are points initially divided?",
+      "answers": {
+        "a": "Randomly",
+        "b": "Based on distance from origin",
+        "c": "Based on X-coordinate",
+        "d": "Based on Y-coordinate"
+      },
+      "explanations": {
+        "a": "Not efficient.",
+        "b": "Not used.",
+        "c": "Correct — split by X.",
+        "d": "Used later."
+      },
+      "correctAnswer": "c",
+      "difficulty": "beginner"
+    },
+    {
+      "question": "What is the minimum number of points required to compute a closest pair?",
+      "answers": {
+        "a": "3",
+        "b": "1",
+        "c": "2",
+        "d": "0"
+      },
+      "explanations": {
+        "a": "Not minimum.",
+        "b": "Cannot form pair.",
+        "c": "Correct — minimum is 2.",
+        "d": "No points."
+      },
+      "correctAnswer": "c",
+      "difficulty": "beginner"
+    },
+    {
+      "question": "What is the width of the vertical strip checked during the combine step?",
+      "answers": {
+        "a": "d / 2",
+        "b": "2d",
+        "c": "n / 2",
+        "d": "d"
+      },
+      "explanations": {
+        "a": "Too small.",
+        "b": "Correct — width is 2d.",
+        "c": "Unrelated.",
+        "d": "Half strip."
+      },
+      "correctAnswer": "b",
+      "difficulty": "beginner"
+    },
+    {
+      "question": "Which field of study focuses on problems like Closest Pair of Points?",
+      "answers": {
+        "a": "Network Security",
+        "b": "Operating Systems",
+        "c": "Database Systems",
+        "d": "Computational Geometry"
+      },
+      "explanations": {
+        "a": "Security domain.",
+        "b": "OS deals with processes.",
+        "c": "Databases store data.",
+        "d": "Correct — geometric algorithms."
+      },
+      "correctAnswer": "d",
+      "difficulty": "beginner"
+    }
+  ]
+}

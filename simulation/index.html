@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Closest Pair: Divide & Conquer Analysis</title>
+
+    <link rel="stylesheet" href="css/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+</head>
+
+<body>
+    <div class="main-container">
+
+        <!-- ========== SIMULATION VIEW (Page 1) ========== -->
+        <div id="simulationView" class="simulation-view">
+            <!-- CONFIGURATION & DATA PANEL (compact) -->
+            <section class="config-panel" style="position: relative;">
+                <div class="controls-row">
+                    <!-- Random Input -->
+                    <label for="pointCount">Enter no. of points:</label>
+                    <div id="randomInput" class="input-wrapper">
+                        <input type="text" id="pointCount" placeholder="e.g. 10" value="10">
+                    </div>
+
+                    <!-- Mode Selection -->
+                    <label for="inputMode">Mode:</label>
+                    <select id="inputMode" class="mode-select">
+                        <option value="random">Random</option>
+                        <option value="manual">Manual</option>
+                    </select>
+
+                    <!-- Action Buttons -->
+                    <button id="btnLoad" class="btn btn-primary">Load</button>
+                    <button id="btnReset" class="btn btn-secondary">Reset</button>
+
+                    <!-- Advanced Button Pushed to Right -->
+                    <button id="btnShowAdvanced" class="btn btn-primary" style="margin-left: auto;">
+                        Comparison with Brute-Force approach
+                    </button>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="coordinates-row">
+                    <h3>Generated Coordinates:</h3>
+                    <div id="coordinateList" class="coordinate-box">
+                        <span id="coordPlaceholder" class="placeholder">Points will appear here after
+                            generation...</span>
+                        <span id="coordResult" style="color: #000;"></span>
+                        <div id="manualInput" class="input-wrapper hidden" style="width: 100%;">
+                            <input type="text" id="manualPoints" placeholder="e.g: 10,20 30,40 50,60"
+                                style="width: 100%; background: transparent; border: none; color: #000; font-family: inherit;">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MAIN LAYOUT: Split between Viz and Right Controls -->
+            <div class="content-split">
+
+                <!-- VISUALIZATION -->
+                <div class="viz-container">
+                    <!-- Tab Toggle (compact) -->
+                    <div class="viz-tabs-wrapper">
+                        <div class="viz-tabs">
+                            <button id="tabGeometry" class="viz-tab active" data-tab="geometry">Geometry View</button>
+                            <button id="tabRecursion" class="viz-tab" data-tab="recursion">Recursion Tree</button>
+                        </div>
+                        <!-- Tab lock tooltip (hidden by default) -->
+                        <div id="tabLockMsg" class="tab-lock-msg hidden">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            Locked during autoplay
+                        </div>
+                    </div>
+
+                    <!-- Geometry View (existing) -->
+                    <div id="geometryView" class="tab-content active">
+                        <div class="canvas-frame">
+                            <canvas id="mainCanvas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Recursion Tree View (new) -->
+                    <div id="recursionTreeView" class="tab-content">
+                        <div class="tree-frame">
+                            <div id="treeContainer" class="tree-container">
+                                <div class="tree-placeholder">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
+                                        <circle cx="12" cy="5" r="3"/>
+                                        <circle cx="5" cy="17" r="3"/>
+                                        <circle cx="19" cy="17" r="3"/>
+                                        <line x1="10" y1="7.5" x2="6.5" y2="14.5"/>
+                                        <line x1="14" y1="7.5" x2="17.5" y2="14.5"/>
+                                    </svg>
+                                    <p>Generate points and step through to see the recursion tree.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stats-bar">
+                        <span>Min Distance: <b id="currentMinVal">-</b></span>
+                        <span>Comparisons: <b id="compCount">-</b></span>
+                        <button id="btnDynamicParams" class="btn-sm">Runtime Metrics</button>
+                    </div>
+                </div>
+
+                <!-- RIGHT PANEL: Controls & Logs -->
+                <aside class="right-panel">
+                    <div class="nav-controls">
+                        <button id="btnPrev" class="btn btn-nav">&larr; Previous</button>
+                        <div class="dropdown-container">
+                            <button id="btnAuto" class="btn btn-nav">Auto Play &#9662;</button>
+                            <div id="speedDropdown" class="dropdown-menu hidden">
+                                <div class="dropdown-item" data-speed="1500">Slow</div>
+                                <div class="dropdown-item" data-speed="800">Normal</div>
+                                <div class="dropdown-item" data-speed="200">Fast</div>
+                            </div>
+                        </div>
+                        <button id="btnNext" class="btn btn-nav">Next &rarr;</button>
+                    </div>
+
+                    <!-- Mode indicator -->
+                    <div id="modeIndicator" class="mode-indicator">
+                        <span class="mode-label">Mode:</span>
+                        <span id="modeText" class="mode-value">Geometry</span>
+                    </div>
+
+                    <div class="step-log-container">
+                        <div class="log-header">
+                            <h3 id="logTitle">GEOMETRY STEPS</h3>
+                            <span class="step-info">Steps: <b id="stepCounter">0/0</b></span>
+                        </div>
+                        <!-- Geometry Log (default visible) -->
+                        <div id="logContainer" class="log-list">
+                            <div class="log-entry system">Ready. Generate points to begin.</div>
+                        </div>
+                        <!-- Recursion Log (hidden by default) -->
+                        <div id="recursionLogContainer" class="log-list hidden">
+                            <div class="log-entry system">Switch to Recursion Tree to see recursion steps.</div>
+                        </div>
+                    </div>
+
+                    <!-- Geometry Legend (shown when geometry tab active) -->
+                    <div id="geometryLegend" class="legend">
+                        <h4>Legend</h4>
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <span class="dot" style="background:#2563eb"></span> Division Line
+                            </div>
+                            <div class="legend-item">
+                                <span class="dot" style="background:#f59e0b"></span> Review Pair
+                            </div>
+                            <div class="legend-item">
+                                <span class="dot" style="background:#16a34a"></span> Best Pair
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recursion Legend (shown when recursion tab active) -->
+                    <div id="recursionLegend" class="legend hidden">
+                        <h4>Tree Legend</h4>
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <span class="dot" style="background:#38bdf8"></span> Active Node
+                            </div>
+                            <div class="legend-item">
+                                <span class="dot" style="background:#a78bfa"></span> Base Case
+                            </div>
+                            <div class="legend-item">
+                                <span class="dot" style="background:#22c55e"></span> Completed
+                            </div>
+                            <div class="legend-item">
+                                <span class="dot" style="background:#334155"></span> Unvisited
+                            </div>
+                        </div>
+                    </div>
+
+                </aside>
+
+            </div>
+        </div>
+
+        <!-- ========== COMPARISON VIEW (Page 2) ========== -->
+        <div id="comparisonView" class="comparison-view">
+            <div class="comparison-container">
+                <!-- 1. INPUTS -->
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <h2>Configuration</h2>
+                        <button id="btnGoBack" class="btn btn-sm" style="background: #2563eb; color: #fff;">Go
+                            Back</button>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="inputN">Input Size (N):</label>
+                        <input type="number" id="inputN" value="1000" min="10" max="10000" placeholder="e.g. 1000">
+                        <small style="color: #64748b;">Try different values of N (Max 10000)</small>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="inputType">Points Distribution:</label>
+                        <select id="inputType">
+                            <option value="random">Random Uniform</option>
+                            <option value="worst">Worst Case (Collinear)</option>
+                            <option value="best">Best Case (Clusters)</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 8px;">
+                        <button id="btnRunComparison" class="btn btn-primary" style="flex: 1;">Run Analysis</button>
+                        <button id="btnResetComparison" class="btn btn-secondary" style="flex: 1;">Reset</button>
+                    </div>
+                    <div id="statusMsg" style="text-align: center; color: #64748b; font-size: 0.8rem; height: 20px;">
+                    </div>
+                </div>
+
+                <!-- 2. BRUTE FORCE RESULTS -->
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <h2>Brute Force (O(N²))</h2>
+                    </div>
+
+                    <div class="result-box">
+                        <div class="metric-row">
+                            <span>Execution Time:</span>
+                            <span id="bfTime" class="metric-val">-</span>
+                        </div>
+                        <div class="metric-row">
+                            <span>Comparisons:</span>
+                            <span id="bfComps" class="metric-val">-</span>
+                        </div>
+                        <div class="metric-row">
+                            <span>Min Distance:</span>
+                            <span id="bfDist" class="metric-val">-</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="font-size: 0.85rem; margin-bottom: 5px;">Complexity Visualization</h4>
+                        <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Relative Time taken:</div>
+                        <div class="bar-container">
+                            <div id="bfBar" class="bar-fill bf-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Observation - shown after running -->
+                    <div id="bfObservation" class="observation-box bf-obs">
+                        <strong>Observation:</strong>
+                        <ul style="margin: 5px 0 0 15px; padding: 0;">
+                            <li>Checks every single pair.</li>
+                            <li>Total pairs = N × (N - 1) / 2</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 3. DIVIDE & CONQUER RESULTS -->
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <h2>Divide & Conquer (O(N log N))</h2>
+                    </div>
+
+                    <div class="result-box">
+                        <div class="metric-row">
+                            <span>Execution Time:</span>
+                            <span id="dcTime" class="metric-val">-</span>
+                        </div>
+                        <div class="metric-row">
+                            <span>Comparisons:</span>
+                            <span id="dcComps" class="metric-val">-</span>
+                        </div>
+                        <div class="metric-row">
+                            <span>Min Distance:</span>
+                            <span id="dcDist" class="metric-val">-</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="font-size: 0.85rem; margin-bottom: 5px;">Complexity Visualization</h4>
+                        <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Relative Time taken:</div>
+                        <div class="bar-container">
+                            <div id="dcBar" class="bar-fill dc-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Observation - shown after running -->
+                    <div id="dcObservation" class="observation-box dc-obs">
+                        <strong>Observation:</strong>
+                        <ul style="margin: 5px 0 0 15px; padding: 0;">
+                            <li>Significantly fewer comparisons using spatial partitioning.</li>
+                            <li><strong>Computational speedup:</strong> <span id="effGain" style="font-weight: bold;">-</span>x</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- Modal for Dynamic Parameters -->
+    <div id="paramsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Dynamic Parameters Analysis</h2>
+            <div class="params-grid">
+                <div class="param-card">
+                    <h4>Total Comparisons (D&C)</h4>
+                    <p id="pCompDC">-</p>
+                </div>
+                <div class="param-card">
+                    <h4>Total Comparisons (Brute Force)</h4>
+                    <p id="pCompBF">-</p>
+                </div>
+                <div class="param-card">
+                    <h4>Comparisons Saved</h4>
+                    <p id="pSaved">-</p>
+                </div>
+                <div class="param-card">
+                    <h4>Execution Time</h4>
+                    <p id="pExecTime">-</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <p>Calculated for current set of N points.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+
+<script src="../assets/js/iframeResize.js"></script>
+        
+        </body>
+
+</html>

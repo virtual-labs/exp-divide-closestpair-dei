@@ -1,0 +1,9 @@
+
+/home/runner/work/exp-divide-closestpair-dei/exp-divide-closestpair-dei/experiment/simulation/js/main.js
+  737:10  warning  'switchToRandomMode' is defined but never used  no-unused-vars
+  744:10  warning  'switchToManualMode' is defined but never used  no-unused-vars
+  998:11  warning  'minXAll' is assigned a value but never used    no-unused-vars
+  999:11  warning  'maxXAll' is assigned a value but never used    no-unused-vars
+
+✖ 4 problems (0 errors, 4 warnings)
+
